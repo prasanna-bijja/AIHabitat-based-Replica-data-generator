@@ -1,85 +1,109 @@
-# AIHabitat-based-Replica-data-generator
+# Replica Ground-Truth Data Generation using AI-Habitat
 
+This repository documents how RGB, depth, semantic, and camera pose data were generated from the [Replica dataset](https://github.com/facebookresearch/Replica-Dataset) using [AI-Habitat (Habitat-Sim)](https://github.com/facebookresearch/habitat-sim).
 
+## Why this data was generated
 
-Clone Habitat-Sim:
+Replica provides photorealistic, densely reconstructed indoor scenes with accurate geometry and semantic annotations, which makes it well suited as a **ground-truth source** for evaluating monocular depth and pose estimation pipelines. The RGB, depth, semantics, camera intrinsics, and per-frame poses collected here are intended to be used as reference ground truth when benchmarking predicted depth and trajectory outputs against known, simulator-accurate values.
+
+## What this pipeline captures
+
+For each recorded frame, the following are saved:
+
+| Modality | Format | Description |
+|---|---|---|
+| RGB | `.png` | Color image from the agent's camera |
+| Depth | `.npy` | Metric depth map (float32, meters) |
+| Semantic / Instance masks | `.npy` | Per-pixel instance IDs |
+| Camera intrinsics | `intrinsics.json` | Focal length, principal point, FOV (fixed for the session) |
+| Camera pose (extrinsics) | `.txt` + `trajectory.json` | 4×4 world-to-camera transform per frame |
+| Object metadata | `objects.json` | Instance ID → semantic category mapping |
+
+## Environment Setup
+
+**Platform:** Ubuntu
+**Python version:** 3.9
+
+> **⚠️ Version note:** Habitat-Sim's pre-built bindings currently target **Python 3.9**. Using **Python 3.12** caused the simulator window to open in a static, non-interactive state — keyboard input wasn't reaching the simulator and the agent could not be moved. Creating a dedicated Python 3.9 environment resolved this completely. If you hit an unresponsive or frozen viewer window, check your Python version first before debugging anything else.
 
 ```bash
-git clone --recursive https://github.com/facebookresearch/habitat-sim.git
-cd habitat-sim
+conda create -n habitat python=3.9 -y
+conda activate habitat
 ```
 
-- If the repository was cloned without submodules:
+### Installing Habitat-Sim
 
-- git submodule update --init --recursive
+Followed the official [Habitat-Lab](https://github.com/facebookresearch/habitat-lab) installation instructions for Ubuntu:
 
-- Install the required Python packages:
 ```bash
-pip install numpy
-pip install scikit-build-core
+conda install habitat-sim -c conda-forge -c aihabitat
 ```
 
-Build Habitat-Sim:
+After installation, verify the simulator launches and responds to input using one of Habitat's bundled test scenes before moving on to Replica:
+
 ```bash
-pip install . --no-build-isolation
-Download Replica Dataset
+python examples/viewer.py --scene /path/to/habitat-test-scenes/skokloster-castle.glb
 ```
-Clone the official Replica repository:
+
+At this stage you should be able to see the scene render and move around using the keyboard.
+
+## Downloading the Replica Dataset
 
 ```bash
 git clone https://github.com/facebookresearch/Replica-Dataset.git
 cd Replica-Dataset
+./download.sh /path/to/replica_v1
 ```
 
-Install the download dependencies:
-```bash
-sudo apt-get install wget pigz unzip
-```
-Download the dataset:
-```bash
-./download.sh /path/to/replica
-```
-For example:
-```bash
-./download.sh ~/habitat-sim/data/scene_datasets/replica
-```
-Data Recording
+Each downloaded scene follows this structure:
 
-The script allows interactive navigation inside a Replica scene while
-recording synchronized sensor observations.
-
-```bash
-python record_navigation.py
+```
+apartment_0/
+├── mesh.ply                     # raw textured mesh (no semantics)
+├── textures/
+└── habitat/
+    ├── mesh_semantic.ply        # mesh with semantic/instance data — use this for the scene_id
+    ├── mesh_semantic.navmesh    # navigation mesh for the agent
+    ├── info_semantic.json       # instance ID → category name mapping
+    └── replica_stage.stage_config.json
 ```
 
-* Navigation:
+> **Important:** point Habitat-Sim's `scene_id` at `habitat/mesh_semantic.ply`, not the top-level `mesh.ply`. The plain mesh carries geometry only — semantic and instance segmentation will not load from it.
 
-W/A/S/D – move camera
-I/J/K/L - turn camera
-Z/X – move up/down
-Arrow keys – rotate camera
-Space key – save synchronized frame
-Output
+## Verifying the Setup
 
-For each recorded frame, the following information is stored:
+Before recording any data, the following were confirmed for each scene:
 
-```bash output/
+- [x] The scene loads without errors
+- [x] `sim.pathfinder.is_loaded` returns `True` (navmesh present and valid)
+- [x] `sim.semantic_scene` is populated with a non-zero object count
+- [x] The agent can be placed at a random navigable point and moved with the keyboard
+- [x] RGB, depth, and semantic sensors all render correctly and stay spatially aligned
+
+Only once a scene passed these checks was it used for data recording.
+
+## Recording Data
+
+With the environment verified, a Python script drives the simulator through a sequence of camera poses in a scene (e.g. `apartment_0`), and at each captured step saves the RGB frame, depth map, semantic/instance mask, and the agent's current pose, while the camera intrinsics are computed once and saved for the whole session.
+
+Output is organized per scene as:
+
+```
+output/apartment_0/
 ├── rgb/
-│   └── 000000.png
 ├── depth/
-│   └── 000000.npy
-├── semantic/
-│   └── 000000.npy
+├── depth_vis/
 ├── instance/
-│   └── 000000.npy
-├── poses/
-│   └── 000000.npy
-├── intrinsics.txt
-├── trajectory.txt
-└── frames.csv
+├── instance_vis/
+├── pose/
+├── intrinsics.json
+├── objects.json
+├── metadata.json
+└── trajectory.json
+```
 
+## Acknowledgements
 
+- [Replica Dataset](https://github.com/facebookresearch/Replica-Dataset) — Facebook Reality Labs Research
+- [Habitat-Sim](https://github.com/facebookresearch/habitat-sim) / [Habitat-Lab](https://github.com/facebookresearch/habitat-lab) — Facebook AI Research
 
-trajectory.txt follows:
-
-timestamp tx ty tz qx qy qz qw
