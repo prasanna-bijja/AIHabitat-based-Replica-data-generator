@@ -89,17 +89,23 @@ With the environment verified, a Python script drives the simulator through a se
 Output is organized per scene as:
 
 ```
-output/apartment_0/
-├── rgb/
-├── depth/
-├── depth_vis/
-├── instance/
-├── instance_vis/
-├── pose/
-├── intrinsics.json
-├── objects.json
-├── metadata.json
-└── trajectory.json
+<output>/
+├── rgb/                     000000.png ...   8-bit RGB
+├── depth/                   000000.npy ...   float32 planar z-depth (m), 0 = invalid
+├── instance/                000000.npy ...   int32 instance IDs
+├── semantic/                000000.npy ...   int32 class IDs, 0 = unknown
+├── poses/                   000000.npy ...   4x4 camera-to-world, OpenGL camera axes
+├── poses_opencv/            000000.npy ...   4x4 camera-to-world, OpenCV camera axes
+├── trajectory.txt           TUM format, OpenGL camera axes
+├── trajectory_opencv.txt    TUM format, OpenCV camera axes
+├── traj_c2w_opencv.txt      16 numbers per line (row-major 4x4), OpenCV
+├── raw_habitat_poses.jsonl  untouched agent + sensor states
+├── intrinsics.npy / .txt    3x3 camera matrix K
+├── semantic_classes.json    instance ID -> class ID -> class name
+├── frames.csv               frame index and timestamps
+├── metadata.json            scene, camera, conventions, units, settings
+└── README.md                description of the capture
+
 ```
 
 ## Acknowledgements
