@@ -108,6 +108,44 @@ Output is organized per scene as:
 
 ```
 
+
+
+## Verification: poses and depth vs. Replica mesh
+
+Captured poses and depth were checked against the Replica ground-truth mesh in Open3D.
+
+**Camera trajectory** — camera frames (X red, Y green, Z blue, OpenCV convention) along 
+the path:
+
+![Trajectory](media/trajectory.gif)
+
+**Depth back-projection** — each depth image back-projected into the world with its pose; points land on the mesh surfaces:
+
+![Back-projection](media/backprojection.gif)
+
+### Coordinate conventions
+
+**1. World frame (applied to the mesh)**
+
+| | Up axis | Conversion |
+|---|---|---|
+| Replica mesh file | +Z | unchanged env |
+| Habitat world | +Y | `(x, y, z) → (x, z, −y)` = rotate mesh −90° about X |
+
+**2. Camera frame (applied to the poses)**
+
+| | Camera axes (X, Y, Z) | Looks along | issues |
+|---|---|---|---|
+| Habitat / OpenGL | right, up, backward | −Z | poses out of mesh when therre conversion is not applied (`poses/`)|
+| OpenCV | right, down, forward | +Z | in mesh `T_cv = T_gl · diag(1, −1, −1, 1)` (`poses_opencv/`) |
+
+The camera conversion only relabels the camera's own axes: camera position and viewing direction are unchanged, and the poses stay in the Habitat world frame.
+### Results
+- 77 frames; camera height above floor (ray cast): **1.42 ± 0.01 m**, constant across the trajectory
+- Back-projected depth aligns with the mesh; all frames are consistent with each other
+
+Run: `backprojection.py` (set paths and `HFOV_DEG` at the top of the script).
+
 ## Acknowledgements
 
 - [Replica Dataset](https://github.com/facebookresearch/Replica-Dataset) — Facebook Reality Labs Research
